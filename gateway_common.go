@@ -3,16 +3,15 @@ package gateway
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"errors"
-	"net"
-	"strconv"
+	"fmt"
+	"runtime"
 	"strings"
 )
 
 var errNoGateway = errors.New("no gateway found")
 
-func parseWindowsRoutePrint(output []byte) (net.IP, error) {
+func parseWindowsRoutePrint(output []byte) (string, error) {
 	// Windows route output format is always like this:
 	// ===========================================================================
 	// Interface List
@@ -30,34 +29,37 @@ func parseWindowsRoutePrint(output []byte) (net.IP, error) {
 	// I'm trying to pick the active route,
 	// then jump 2 lines and pick the third IP
 	// Not using regex because output is quite standard from Windows XP to 8 (NEEDS TESTING)
-	lines := strings.Split(string(output), "\n")
-	sep := 0
-	for idx, line := range lines {
-		if sep == 3 {
-			// We just entered the 2nd section containing "Active Routes:"
-			if len(lines) <= idx+2 {
-				return nil, errNoGateway
-			}
 
-			fields := strings.Fields(lines[idx+2])
-			if len(fields) < 3 {
-				return nil, errNoGateway
-			}
+	// lines := strings.Split(string(output), "\n")
+	// sep := 0
+	// for idx, line := range lines {
+	// 	if sep == 3 {
+	// 		// We just entered the 2nd section containing "Active Routes:"
+	// 		if len(lines) <= idx+2 {
+	// 			return "", errNoGateway
+	// 		}
 
-			ip := net.ParseIP(fields[2])
-			if ip != nil {
-				return ip, nil
-			}
-		}
-		if strings.HasPrefix(line, "=======") {
-			sep++
-			continue
-		}
-	}
-	return nil, errNoGateway
+	// 		fields := strings.Fields(lines[idx+2])
+	// 		if len(fields) < 3 {
+	// 			return "", errNoGateway
+	// 		}
+
+	// 		ip := net.ParseIP(fields[2])
+	// 		if ip != nil {
+	// 			return ip, errNoGateway
+	// 		}
+	// 	}
+	// 	if strings.HasPrefix(line, "=======") {
+	// 		sep++
+	// 		continue
+	// 	}
+	// }
+	// return "nil", errNoGateway
+
+	return "", fmt.Errorf("DiscoverGateway not implemented for OS %s", runtime.GOOS)
 }
 
-func parseLinuxProcNetRoute(f []byte) (net.IP, error) {
+func parseLinuxProcNetRoute(f []byte) (string, error) {
 	/* /proc/net/route file:
 	   Iface   Destination Gateway     Flags   RefCnt  Use Metric  Mask
 	   eno1    00000000    C900A8C0    0003    0   0   100 00000000    0   00
@@ -65,34 +67,24 @@ func parseLinuxProcNetRoute(f []byte) (net.IP, error) {
 	*/
 	const (
 		sep   = "\t" // field separator
-		field = 2    // field containing hex gateway address
+		field = 0    // field containing hex gateway address
 	)
 	scanner := bufio.NewScanner(bytes.NewReader(f))
 	for scanner.Scan() {
 		// Skip header line
 		if !scanner.Scan() {
-			return nil, errors.New("Invalid linux route file")
+			return "", errors.New("Invalid linux route file")
 		}
 
-		// get field containing gateway address
+		// get field containing gateway address. if len == 1, then there are no routes
 		tokens := strings.Split(scanner.Text(), sep)
-		if len(tokens) <= field {
-			return nil, errors.New("Invalid linux route file")
+		if len(tokens) <= field || len(tokens) == 1 {
+			return "", errors.New("Invalid linux route file")
 		}
-		gatewayHex := "0x" + tokens[field]
 
-		// cast hex address to uint32
-		d, _ := strconv.ParseInt(gatewayHex, 0, 64)
-		d32 := uint32(d)
-
-		// make net.IP address from uint32
-		ipd32 := make(net.IP, 4)
-		binary.LittleEndian.PutUint32(ipd32, d32)
-
-		// format net.IP to dotted ipV4 string
-		return net.IP(ipd32), nil
+		return tokens[field], nil
 	}
-	return nil, errors.New("Failed to parse linux route file")
+	return "", errors.New("Failed to parse linux route file")
 }
 
 func parseDarwinRouteGet(output []byte) (string, error) {
@@ -101,6 +93,7 @@ func parseDarwinRouteGet(output []byte) (string, error) {
 	// destination: default
 	//        mask: default
 	//     gateway: 192.168.1.1
+	//   interface: en0
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		fields := strings.Fields(line)
@@ -112,7 +105,7 @@ func parseDarwinRouteGet(output []byte) (string, error) {
 	return "", errNoGateway
 }
 
-func parseBSDSolarisNetstat(output []byte) (net.IP, error) {
+func parseBSDNetstat(output []byte) (string, error) {
 	// netstat -rn produces the following on FreeBSD:
 	// Routing tables
 	//
@@ -134,12 +127,35 @@ func parseBSDSolarisNetstat(output []byte) (net.IP, error) {
 	for _, line := range outputLines {
 		fields := strings.Fields(line)
 		if len(fields) >= 2 && fields[0] == "default" {
-			ip := net.ParseIP(fields[1])
-			if ip != nil {
-				return ip, nil
-			}
+			return fields[3], nil
 		}
 	}
 
-	return nil, errNoGateway
+	return "", errNoGateway
+}
+
+func parseSolarisNetstat(output []byte) (string, error) {
+	// netstat -rn produces the following on Solaris:
+	//   Routing Table: IPv4
+	//   Destination           Gateway           Flags  Ref     Use     Interface
+	//   -------------------- -------------------- ----- ----- ---------- ---------
+	//   default              172.16.32.1          UG        2      76419 net0
+	//   127.0.0.1            127.0.0.1            UH        2         36 lo0
+	//   172.16.32.0          172.16.32.17         U         4       8100 net0
+
+	//   Routing Table: IPv6
+	// 	Destination/Mask            Gateway                   Flags Ref   Use    If
+	//   --------------------------- --------------------------- ----- --- ------- -----
+	//   ::1                         ::1                         UH      3   75382 lo0
+	//   2001:470:deeb:32::/64       2001:470:deeb:32::17        U       3    2744 net0
+	//   fe80::/10                   fe80::6082:52ff:fedc:7df0   U       3    8430 net0
+	outputLines := strings.Split(string(output), "\n")
+	for _, line := range outputLines {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "default" {
+			return fields[5], nil
+		}
+	}
+
+	return "", errNoGateway
 }

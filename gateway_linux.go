@@ -3,17 +3,15 @@ package gateway
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 )
 
-
 const (
 	// See http://man7.org/linux/man-pages/man8/route.8.html
-	file  = "/proc/net/route"
+	file = "/proc/net/route"
 )
 
-func DiscoverGateway() (ip net.IP, err error) {
+func DiscoverGateway() (ip string, err error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, fmt.Errorf("Can't access %s", file)
@@ -26,5 +24,3 @@ func DiscoverGateway() (ip net.IP, err error) {
 	}
 	return parseLinuxProcNetRoute(bytes)
 }
-
-

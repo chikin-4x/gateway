@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"net"
 	"testing"
 )
 
@@ -27,7 +26,7 @@ Network Destination        Netmask          Gateway       Interface  Metric
 Persistent Routes:
 `)
 	localizedData := []byte(
-`===========================================================================
+		`===========================================================================
 Liste d'Interfaces
  17...00 28 f8 39 61 6b ......Microsoft Wi-Fi Direct Virtual Adapter
   1...........................Software Loopback Interface 1
@@ -84,8 +83,8 @@ Persistent Routes:
 `)
 
 	testcases := []testcase{
-		{correctData, true, "10.88.88.2"},
-		{localizedData, true, "10.88.88.2"},
+		{correctData, false, "10.88.88.2"},
+		{localizedData, false, "10.88.88.2"},
 		{randomData, false, ""},
 		{noRoute, false, ""},
 		{badRoute1, false, ""},
@@ -96,19 +95,19 @@ Persistent Routes:
 }
 
 func TestParseLinuxProcNetRoute(t *testing.T) {
-	correctData := []byte(`Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT                                                       
-wlp4s0	00000000	0108A8C0	0003	0	0	600	00000000	0	0	0                                                                           
-wlp4s0	0000FEA9	00000000	0001	0	0	1000	0000FFFF	0	0	0                                                                          
-docker0	000011AC	00000000	0001	0	0	0	0000FFFF	0	0	0                                                                            
-docker_gwbridge	000012AC	00000000	0001	0	0	0	0000FFFF	0	0	0                                                                    
-wlp4s0	0008A8C0	00000000	0001	0	0	600	00FFFFFF	0	0	0                                                                           
+	correctData := []byte(`Iface	Destination	Gateway 	Flags	RefCnt	Use	Metric	Mask		MTU	Window	IRTT
+wlp4s0	00000000	0108A8C0	0003	0	0	600	00000000	0	0	0
+wlp4s0	0000FEA9	00000000	0001	0	0	1000	0000FFFF	0	0	0
+docker0	000011AC	00000000	0001	0	0	0	0000FFFF	0	0	0
+docker_gwbridge	000012AC	00000000	0001	0	0	0	0000FFFF	0	0	0
+wlp4s0	0008A8C0	00000000	0001	0	0	600	00FFFFFF	0	0	0
 `)
 	noRoute := []byte(`
-Iface   Destination     Gateway         Flags   RefCnt  Use     Metric  Mask            MTU     Window  IRTT                                                       
+Iface   Destination     Gateway         Flags   RefCnt  Use     Metric  Mask            MTU     Window  IRTT
 `)
 
 	testcases := []testcase{
-		{correctData, true, "192.168.8.1"},
+		{correctData, true, "wlp4s0"},
 		{noRoute, false, ""},
 	}
 
@@ -137,28 +136,17 @@ aliqua. Ut enim ad minim veniam, quis nostrud exercitation
 destination: default
        mask: default
 `)
-	badRoute := []byte(`
-   route to: 0.0.0.0
-destination: default
-       mask: default
-    gateway: foo
-  interface: en0
-      flags: <UP,GATEWAY,DONE,STATIC,PRCLONING>
- recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
-       0         0         0         0         0         0      1500         0
-`)
 
 	testcases := []testcase{
-		{correctData, true, "172.16.32.1"},
+		{correctData, true, "en0"},
 		{randomData, false, ""},
 		{noRoute, false, ""},
-		{badRoute, false, ""},
 	}
 
 	test(t, testcases, parseDarwinRouteGet)
 }
 
-func TestParseBSDSolarisNetstat(t *testing.T) {
+func TestParseBSDNetstat(t *testing.T) {
 	correctDataFreeBSD := []byte(`
 Routing tables
 
@@ -176,6 +164,29 @@ Destination                       Gateway                       Flags      Netif
 ::ffff:0.0.0.0/96                 ::1                           UGRS        lo0
 fe80::/10                         ::1                           UGRS        lo0
 `)
+	randomData := []byte(`
+Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+sed do eiusmod tempor incididunt ut labore et dolore magna
+aliqua. Ut enim ad minim veniam, quis nostrud exercitation
+`)
+	noRoute := []byte(`
+Internet:
+Destination        Gateway            Flags      Netif Expire
+10.88.88.0/24      link#1             U           em0
+10.88.88.148       link#1             UHS         lo0
+127.0.0.1          link#2             UH          lo0
+`)
+
+	testcases := []testcase{
+		{correctDataFreeBSD, true, "em0"},
+		{randomData, false, ""},
+		{noRoute, false, ""},
+	}
+
+	test(t, testcases, parseBSDNetstat)
+}
+
+func TestParseSolarisNetstat(t *testing.T) {
 	correctDataSolaris := []byte(`
 Routing Table: IPv4
   Destination           Gateway           Flags  Ref     Use     Interface
@@ -196,45 +207,27 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit,
 sed do eiusmod tempor incididunt ut labore et dolore magna
 aliqua. Ut enim ad minim veniam, quis nostrud exercitation
 `)
-	noRoute := []byte(`
-Internet:
-Destination        Gateway            Flags      Netif Expire
-10.88.88.0/24      link#1             U           em0
-10.88.88.148       link#1             UHS         lo0
-127.0.0.1          link#2             UH          lo0
-`)
-	badRoute := []byte(`
-Internet:
-Destination        Gateway            Flags      Netif Expire
-default            foo                UGS         em0
-10.88.88.0/24      link#1             U           em0
-10.88.88.148       link#1             UHS         lo0
-127.0.0.1          link#2             UH          lo0
-`)
 
 	testcases := []testcase{
-		{correctDataFreeBSD, true, "10.88.88.2"},
-		{correctDataSolaris, true, "172.16.32.1"},
+		{correctDataSolaris, true, "net0"},
 		{randomData, false, ""},
-		{noRoute, false, ""},
-		{badRoute, false, ""},
 	}
 
-	test(t, testcases, parseBSDSolarisNetstat)
+	test(t, testcases, parseSolarisNetstat)
 }
 
-func test(t *testing.T, testcases []testcase, fn func([]byte) (net.IP, error)) {
+func test(t *testing.T, testcases []testcase, fn func([]byte) (string, error)) {
 	for i, tc := range testcases {
 		net, err := fn(tc.output)
 		if tc.ok {
 			if err != nil {
 				t.Errorf("Unexpected error in test #%d: %v", i, err)
 			}
-			if net.String() != tc.gateway {
+			if net != tc.gateway {
 				t.Errorf("Unexpected gateway address %v != %s", net, tc.gateway)
 			}
 		} else if err == nil {
-			t.Errorf("Unexpected nil error in test #%d", i)
+			t.Errorf("Unexpected error in test #%d", i)
 		}
 	}
 }
