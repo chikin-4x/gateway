@@ -57,7 +57,6 @@ func parseWindowsRoutePrint(output []byte) (net.IP, error) {
 	return nil, errNoGateway
 }
 
-
 func parseLinuxProcNetRoute(f []byte) (net.IP, error) {
 	/* /proc/net/route file:
 	   Iface   Destination Gateway     Flags   RefCnt  Use Metric  Mask
@@ -96,7 +95,7 @@ func parseLinuxProcNetRoute(f []byte) (net.IP, error) {
 	return nil, errors.New("Failed to parse linux route file")
 }
 
-func parseDarwinRouteGet(output []byte) (net.IP, error) {
+func parseDarwinRouteGet(output []byte) (string, error) {
 	// Darwin route out format is always like this:
 	//    route to: default
 	// destination: default
@@ -105,15 +104,12 @@ func parseDarwinRouteGet(output []byte) (net.IP, error) {
 	lines := strings.Split(string(output), "\n")
 	for _, line := range lines {
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == "gateway:" {
-			ip := net.ParseIP(fields[1])
-			if ip != nil {
-				return ip, nil
-			}
+		if len(fields) >= 2 && fields[0] == "interface:" {
+			return fields[1], nil
 		}
 	}
 
-	return nil, errNoGateway
+	return "", errNoGateway
 }
 
 func parseBSDSolarisNetstat(output []byte) (net.IP, error) {
