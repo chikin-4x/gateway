@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"runtime"
 	"strings"
 )
@@ -56,7 +55,7 @@ func parseWindowsRoutePrint(output []byte) (string, error) {
 	// }
 	// return "nil", errNoGateway
 
-	return "", fmt.Errorf("DiscoverGateway not implemented for OS %s", runtime.GOOS)
+	return "", errors.New("DiscoverGateway not implemented for OS " + runtime.GOOS)
 }
 
 func parseLinuxProcNetRoute(f []byte) (string, error) {
