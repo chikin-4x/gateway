@@ -8,7 +8,7 @@ func DiscoverGateway() (ip string, err error) {
 	routeCmd := exec.Command("netstat", "-rn")
 	output, err := routeCmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return parseSolarisNetstat(output)

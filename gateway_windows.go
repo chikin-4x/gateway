@@ -10,7 +10,7 @@ func DiscoverGateway() (string, err error) {
 	routeCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	output, err := routeCmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return parseWindowsRoutePrint(output)

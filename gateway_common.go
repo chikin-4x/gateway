@@ -35,12 +35,12 @@ func parseWindowsRoutePrint(output []byte) (string, error) {
 	// 	if sep == 3 {
 	// 		// We just entered the 2nd section containing "Active Routes:"
 	// 		if len(lines) <= idx+2 {
-	// 			return "nil", errNoGateway
+	// 			return "", errNoGateway
 	// 		}
 
 	// 		fields := strings.Fields(lines[idx+2])
 	// 		if len(fields) < 3 {
-	// 			return "nil", errNoGateway
+	// 			return "", errNoGateway
 	// 		}
 
 	// 		ip := net.ParseIP(fields[2])
@@ -55,7 +55,7 @@ func parseWindowsRoutePrint(output []byte) (string, error) {
 	// }
 	// return "nil", errNoGateway
 
-	return "nil", errors.New("DiscoverGateway not implemented for OS " + runtime.GOOS)
+	return "", errors.New("DiscoverGateway not implemented for OS " + runtime.GOOS)
 }
 
 func parseLinuxProcNetRoute(f []byte) (string, error) {
@@ -72,18 +72,18 @@ func parseLinuxProcNetRoute(f []byte) (string, error) {
 	for scanner.Scan() {
 		// Skip header line
 		if !scanner.Scan() {
-			return "nil", errors.New("Invalid linux route file")
+			return "", errors.New("Invalid linux route file")
 		}
 
 		// get field containing gateway address. if len == 1, then there are no routes
 		tokens := strings.Split(scanner.Text(), sep)
 		if len(tokens) <= field || len(tokens) == 1 {
-			return "nil", errors.New("Invalid linux route file")
+			return "", errors.New("Invalid linux route file")
 		}
 
 		return tokens[field], nil
 	}
-	return "nil", errors.New("Failed to parse linux route file")
+	return "", errors.New("Failed to parse linux route file")
 }
 
 func parseDarwinRouteGet(output []byte) (string, error) {
@@ -101,7 +101,7 @@ func parseDarwinRouteGet(output []byte) (string, error) {
 		}
 	}
 
-	return "nil", errNoGateway
+	return "", errNoGateway
 }
 
 func parseBSDNetstat(output []byte) (string, error) {
@@ -130,7 +130,7 @@ func parseBSDNetstat(output []byte) (string, error) {
 		}
 	}
 
-	return "nil", errNoGateway
+	return "", errNoGateway
 }
 
 func parseSolarisNetstat(output []byte) (string, error) {
@@ -156,5 +156,5 @@ func parseSolarisNetstat(output []byte) (string, error) {
 		}
 	}
 
-	return "nil", errNoGateway
+	return "", errNoGateway
 }
