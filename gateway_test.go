@@ -25,21 +25,6 @@ Network Destination        Netmask          Gateway       Interface  Metric
 ===========================================================================
 Persistent Routes:
 `)
-	localizedData := []byte(
-		`===========================================================================
-Liste d'Interfaces
- 17...00 28 f8 39 61 6b ......Microsoft Wi-Fi Direct Virtual Adapter
-  1...........................Software Loopback Interface 1
-===========================================================================
-IPv4 Table de routage
-===========================================================================
-Itinéraires actifs :
-Destination réseau    Masque réseau  Adr. passerelle   Adr. interface Métrique
-          0.0.0.0          0.0.0.0      10.88.88.2     10.88.88.149     10
-===========================================================================
-Itinéraires persistants :
-  Aucun
-`)
 	randomData := []byte(`
 Lorem ipsum dolor sit amet, consectetur adipiscing elit,
 sed do eiusmod tempor incididunt ut labore et dolore magna
@@ -77,14 +62,13 @@ IPv4 Route Table
 ===========================================================================
 Active Routes:
 Network Destination        Netmask          Gateway       Interface  Metric
-          0.0.0.0          0.0.0.0          foo           10.88.88.149     10
+          0.0.0.0          0.0.0.0          foo           foo     10
 ===========================================================================
 Persistent Routes:
 `)
 
 	testcases := []testcase{
-		{correctData, false, "10.88.88.2"},
-		{localizedData, false, "10.88.88.2"},
+		{correctData, true, "10.88.88.149"},
 		{randomData, false, ""},
 		{noRoute, false, ""},
 		{badRoute1, false, ""},

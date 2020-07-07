@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"runtime"
+	"net"
 	"strings"
 )
 
@@ -29,33 +29,33 @@ func parseWindowsRoutePrint(output []byte) (string, error) {
 	// then jump 2 lines and pick the third IP
 	// Not using regex because output is quite standard from Windows XP to 8 (NEEDS TESTING)
 
-	// lines := strings.Split(string(output), "\n")
-	// sep := 0
-	// for idx, line := range lines {
-	// 	if sep == 3 {
-	// 		// We just entered the 2nd section containing "Active Routes:"
-	// 		if len(lines) <= idx+2 {
-	// 			return "", errNoGateway
-	// 		}
+	lines := strings.Split(string(output), "\n")
+	sep := 0
+	for idx, line := range lines {
+		if sep == 3 {
+			// We just entered the 2nd section containing "Active Routes:"
+			if len(lines) <= idx+2 {
+				return "", errNoGateway
+			}
 
-	// 		fields := strings.Fields(lines[idx+2])
-	// 		if len(fields) < 3 {
-	// 			return "", errNoGateway
-	// 		}
+			fields := strings.Fields(lines[idx+2])
+			if len(fields) < 3 {
+				return "", errNoGateway
+			}
 
-	// 		ip := net.ParseIP(fields[2])
-	// 		if ip != nil {
-	// 			return ip, errNoGateway
-	// 		}
-	// 	}
-	// 	if strings.HasPrefix(line, "=======") {
-	// 		sep++
-	// 		continue
-	// 	}
-	// }
-	// return "nil", errNoGateway
+			ip := net.ParseIP(fields[3])
+			if ip != nil {
+				return ip.String(), nil
+			}
+		}
+		if strings.HasPrefix(line, "=======") {
+			sep++
+			continue
+		}
+	}
+	return "", errNoGateway
 
-	return "", errors.New("DiscoverGateway not implemented for OS " + runtime.GOOS)
+	// return "", errors.New("DiscoverGateway not implemented for OS " + runtime.GOOS)
 }
 
 func parseLinuxProcNetRoute(f []byte) (string, error) {
